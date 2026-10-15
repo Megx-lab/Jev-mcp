@@ -23,7 +23,7 @@ MODEL = os.environ.get("JEV_MODEL", "jev-latest")
 PASSWORD = os.environ.get("SERVER_PASSWORD", "")
 PORT = int(os.environ.get("PORT", "8000"))
 
-mcp = FastMCP("jev", stateless_http=True)
+mcp = FastMCP("jev", stateless_http=True, host="0.0.0.0")  # 0.0.0.0 = accept public hostnames
 
 
 async def ask_jev(text: str, question: dict) -> dict:
