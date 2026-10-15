@@ -28,6 +28,24 @@ Keep this URL private: anyone with it can use your Jev credits.
 Developer Mode. Then Create, paste the URL, auth: None.
 (Or use URL `.../mcp` with auth "Token" and paste `SERVER_PASSWORD` as the token.)
 
+Both URL styles require the same `SERVER_PASSWORD`. Bare `/mcp` requests without
+a valid Bearer token return `401 Unauthorized` before reaching any Jev tools.
+Only `/` is public: it returns `ok` for Render's health check and cannot use credits.
+
+## Deployment entry point
+
+The project lives at the repository root; the older nested `jev-mcp/` copy has
+been removed. Leave Render's **Root Directory** empty. Use the start command
+from `render.yaml`, or run `python server.py`; both serve the protected `app`.
+For other ASGI hosts, use `server:app`. Do not serve the raw `mcp` object with
+the MCP CLI, since that bypasses the authentication wrapper.
+
+The server refuses to start if `SERVER_PASSWORD` is unset or empty.
+
+Run the authentication regression tests with:
+
+    python -m unittest discover -s tests -v
+
 ## Try it
 > Use Jev to check if this is urgent: "my exam form closes tonight and the site won't load"
 

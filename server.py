@@ -12,6 +12,7 @@ Local test:  python server.py
 """
 
 import os
+import secrets
 
 import httpx
 import uvicorn
@@ -70,7 +71,9 @@ async def jev_score(text: str, question: str, levels: list[str]) -> dict:
 def protect(app):
     """Only let requests through if the URL starts with /<SERVER_PASSWORD>/
     or they carry 'Authorization: Bearer <SERVER_PASSWORD>'."""
-    prefix = f"/{PASSWORD}"
+    if not PASSWORD:
+        raise RuntimeError("Set SERVER_PASSWORD before starting the server.")
+    password = PASSWORD.encode("utf-8")
 
     async def guarded(scope, receive, send):
         if scope["type"] != "http":
@@ -80,20 +83,28 @@ def protect(app):
             await send({"type": "http.response.start", "status": 200,
                         "headers": [(b"content-type", b"text/plain")]})
             return await send({"type": "http.response.body", "body": b"ok"})
-        auth = dict(scope.get("headers", [])).get(b"authorization", b"").decode()
-        if PASSWORD and path.startswith(prefix + "/"):
-            scope = dict(scope, path=path[len(prefix):], raw_path=path[len(prefix):].encode())
+        headers = dict(scope.get("headers", []))
+        auth = headers.get(b"authorization", b"").split()
+        parts = path.split("/", 2)
+        if (len(parts) == 3
+                and secrets.compare_digest(parts[1].encode("utf-8"), password)):
+            path = "/" + parts[2]
+            scope = dict(scope, path=path, raw_path=path.encode("utf-8"))
             return await app(scope, receive, send)
-        if PASSWORD and auth == f"Bearer {PASSWORD}":
+        if (len(auth) == 2 and auth[0].lower() == b"bearer"
+                and secrets.compare_digest(auth[1], password)):
             return await app(scope, receive, send)
         await send({"type": "http.response.start", "status": 401,
-                    "headers": [(b"content-type", b"text/plain")]})
+                    "headers": [(b"content-type", b"text/plain"),
+                                (b"www-authenticate", b"Bearer")]})
         await send({"type": "http.response.body", "body": b"unauthorized"})
 
     return guarded
 
 
+# Always export the guarded app, including for ASGI deployments.
+app = protect(mcp.streamable_http_app())
+
+
 if __name__ == "__main__":
-    if not PASSWORD:
-        raise SystemExit("Set SERVER_PASSWORD before starting the server.")
-    uvicorn.run(protect(mcp.streamable_http_app()), host="0.0.0.0", port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
