@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: jev-mcp
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    healthCheckPath: /
+    envVars:
+      - key: TYPESAFE_API_KEY
+        sync: false
+      - key: SERVER_PASSWORD
+        generateValue: true
